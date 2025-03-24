@@ -1,5 +1,6 @@
 ﻿using System.Text.Json;
 using backend.Library.Extensions;
+using backend.Library.Models;
 using backend.Library.Services.EventFinalizers;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
@@ -43,14 +44,13 @@ namespace backend.Server.Controllers
         /// </summary>
         /// <returns>Good question</returns>
         [HttpGet()]
-        public void SSE()
+        public async Task SSEAsync(CancellationToken cancellationToken)
         {
             // Set the response headers; this tells the client we're initiating SSE
             Response.Headers.ContentType = "text/event-stream";
             Response.Headers.CacheControl = "no-cache";
-            Response.Headers.Connection = "keep-alive";
 
-            foreach (IFinalizedProvider eventFinalizer in _eventFinalizers)
+            foreach (var eventFinalizer in _eventFinalizers)
             {
                 // Subscribe to finalizers
                 eventFinalizer.OnDataProvided += async payload =>
@@ -69,6 +69,14 @@ namespace backend.Server.Controllers
                     await Response.WriteAsync("\n\n");
                     await Response.Body.FlushAsync();
                 };
+            }
+
+            // Keep the server alive
+            // This still feels very dodgy
+
+            while (cancellationToken == default)
+            {
+                await Task.Delay(1000, cancellationToken);
             }
         }
     }
